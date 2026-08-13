@@ -2,6 +2,8 @@
 
 **The open-source approval, policy, rollback, and audit layer between AI agents and your infrastructure.**
 
+![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue) ![Node >= 22.5](https://img.shields.io/badge/node-%E2%89%A5%2022.5-brightgreen) ![Dependencies: 0 npm](https://img.shields.io/badge/npm%20dependencies-0-success) ![Tests](https://img.shields.io/badge/tests-16%20passing-success)
+
 AI agents are starting to operate production — scaling clusters, provisioning instances, cleaning up resources. Signplane is the control plane that makes that survivable: every agent-proposed change is intercepted **before execution**, identity-checked, risk-scored, and routed by policy — safe changes flow in milliseconds, risky ones wait for a human, forbidden ones never reach the cloud API. Every action becomes a hash-chained, tamper-evident evidence package your auditor can verify.
 
 - **Zero npm dependencies.** The server runs on Node built-ins (including `node:sqlite`); the execution broker is Python + boto3. The whole product is ~2,500 lines you can read before you run it.
@@ -22,6 +24,23 @@ node demo-agent-aws.js               # terminal 3: simulated agent traffic
 In the dashboard: flip to **ENFORCE**, re-run the demo, approve the pending changes (real instances launch in the emulator), block-test the destructive one, click **↩ Roll back**, and try the tamper test — edit one character in `data/evidence.jsonl` and watch the chain break.
 
 Point it at real AWS by setting `AWS_ENDPOINT_URL=aws` with an IAM role you scope. Full production install: [docs/INSTALL.md](docs/INSTALL.md).
+
+![The Signplane dashboard: policy gate, pending approvals, scheduled changes, evidence chain](docs/images/dashboard.png)
+
+## Documentation
+
+| Guide | What it covers |
+|---|---|
+| [docs/INSTALL.md](docs/INSTALL.md) | Self-service install — sandbox track (no cloud access) and dev/test pilot track |
+| [docs/API.md](docs/API.md) | Every endpoint: gateway, approvals, rollback, evidence, users, integrations |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Env vars, `policies.json` schema, auth modes, connector configs |
+| [docs/connecting-agents.md](docs/connecting-agents.md) | Wiring your agent through the gateway + enforcing adoption org-wide |
+| [docs/pilot-runbook.md](docs/pilot-runbook.md) | The four-phase path from dev/test evaluation to enforced production |
+| [docs/install-phase0.md](docs/install-phase0.md) | Copy-paste VM install: systemd unit, IAM example, validation checklist |
+
+Architecture (full walkthrough in the diagram below — blue is the governed path, red never reaches the cloud, amber returns for re-approval):
+
+![Signplane architecture](docs/images/architecture.png)
 
 ## How it works
 
