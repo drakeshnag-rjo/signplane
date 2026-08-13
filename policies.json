@@ -1,0 +1,47 @@
+[
+  {
+    "id": "pol-critical-prod-destroy",
+    "name": "Never let an agent destroy production resources",
+    "match": { "environment": "prod", "verbs": ["delete"] },
+    "risk": "CRITICAL",
+    "action": "block"
+  },
+  {
+    "id": "pol-maintenance-window",
+    "name": "Prod writes inside the maintenance window need only team approval",
+    "match": {
+      "environment": "prod",
+      "verbs": ["write"],
+      "window": { "days": ["sat", "sun"], "start": "02:00", "end": "06:00" }
+    },
+    "risk": "MEDIUM",
+    "action": "approve",
+    "required_role": "team",
+    "approval_ttl_minutes": 240
+  },
+  {
+    "id": "pol-high-prod-write",
+    "name": "Production writes need security approval",
+    "match": { "environment": "prod", "verbs": ["write"] },
+    "risk": "HIGH",
+    "action": "approve",
+    "required_role": "security",
+    "approval_ttl_minutes": 240
+  },
+  {
+    "id": "pol-medium-nonprod-write",
+    "name": "Non-prod writes need team approval",
+    "match": { "verbs": ["write", "delete"] },
+    "risk": "MEDIUM",
+    "action": "approve",
+    "required_role": "team",
+    "approval_ttl_minutes": 240
+  },
+  {
+    "id": "pol-low-read",
+    "name": "Reads flow freely",
+    "match": { "verbs": ["read"] },
+    "risk": "LOW",
+    "action": "allow"
+  }
+]

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signplane — Control Plane</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="5" y="5" width="54" height="54" rx="14" fill="%230d1117" stroke="%2358a6ff" stroke-width="5"/><path d="M16 40 C 22 42 22 26 28 27 S 32 42 38 40 S 42 25 48 26" fill="none" stroke="%23e6edf3" stroke-width="4.5" stroke-linecap="round"/></svg>'>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #e6edf3;
+    --muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --yellow: #d29922;
+    --orange: #db6d28; --red: #f85149;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 24px; }
+  h1 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
+  h1 .logo { color: var(--accent); }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; }
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+  .stat .num { font-size: 24px; font-weight: 700; }
+  .stat .lbl { color: var(--muted); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .LOW { background: #12261e; color: var(--green); }
+  .MEDIUM { background: #2b2111; color: var(--yellow); }
+  .HIGH { background: #2d1a10; color: var(--orange); }
+  .CRITICAL { background: #2d1215; color: var(--red); }
+  .st-executed { color: var(--green); } .st-pending { color: var(--yellow); }
+  .st-blocked { color: var(--red); } .st-rejected { color: var(--red); }
+  .st-observed { color: var(--accent); } .st-rolled_back { color: var(--orange); }
+  .st-failed { color: var(--red); } .st-scheduled { color: #bc8cff; }
+  .drift { color: var(--orange); font-size: 12px; font-weight: 600; }
+  /* auth + settings */
+  .overlay { position: fixed; inset: 0; background: rgba(5,8,12,.88); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .overlay.show { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 26px; width: min(560px, 92vw); max-height: 86vh; overflow-y: auto; }
+  .modal h2 { margin-bottom: 14px; }
+  .modal label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .06em; }
+  .modal input, .modal select { width: 100%; background: #0d1117; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+  .modal .row2 { display: flex; gap: 10px; margin-top: 14px; }
+  .tabbtns { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tabbtns button.active { border-color: var(--accent); color: var(--accent); }
+  .userchip { font-size: 12px; color: var(--muted); }
+  .userchip b { color: var(--text); }
+  .itg-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .itg-row:last-child { border-bottom: none; }
+  .ok-msg { color: var(--green); font-size: 13px; margin-top: 8px; }
+  .err-msg { color: var(--red); font-size: 13px; margin-top: 8px; }
+  button { background: #21262d; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+  button:hover { border-color: var(--accent); }
+  button.approve { background: #1a7f37; border-color: #2ea043; }
+  button.reject { background: #8b1e24; border-color: #da3633; }
+  .mode-toggle { display: flex; align-items: center; gap: 10px; }
+  .mode-pill { padding: 4px 14px; border-radius: 999px; font-weight: 700; font-size: 12px; }
+  .mode-observe { background: #0d2846; color: var(--accent); }
+  .mode-enforce { background: #12261e; color: var(--green); }
+  .chain-ok { color: var(--green); font-weight: 600; }
+  .chain-bad { color: var(--red); font-weight: 700; }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--muted); }
+  .muted { color: var(--muted); font-size: 12px; }
+  a { color: var(--accent); text-decoration: none; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .empty { color: var(--muted); padding: 12px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1><svg class="logo" width="24" height="24" viewBox="0 0 64 64" aria-hidden="true" style="vertical-align:-4px"><rect x="5" y="5" width="54" height="54" rx="14" fill="none" stroke="#58a6ff" stroke-width="5"/><path d="M16 40 C 22 42 22 26 28 27 S 32 42 38 40 S 42 25 48 26" fill="none" stroke="#e6edf3" stroke-width="4.5" stroke-linecap="round"/></svg> Signplane <span class="muted">— control plane for autonomous infrastructure</span></h1>
+  <div class="mode-toggle">
+    <span id="endpoint" class="muted mono"></span>
+    <span id="chain"></span>
+    <span id="modePill" class="mode-pill">…</span>
+    <button id="modeBtn" onclick="toggleMode()">Switch mode</button>
+    <a href="/api/evidence/export"><button>⬇ Export evidence pack</button></a>
+    <button onclick="openSettings()">⚙ Settings</button>
+    <span class="userchip" id="userchip"></span>
+  </div>
+</header>
+
+<!-- login / first-run setup -->
+<div class="overlay" id="loginOverlay"><div class="modal">
+  <h2 id="loginTitle">Sign in to Signplane</h2>
+  <div id="loginForm">
+    <label>Email</label><input id="loginEmail" type="email" autocomplete="username">
+    <label>Password</label><input id="loginPassword" type="password" autocomplete="current-password">
+    <div class="row2">
+      <button class="approve" style="flex:1" onclick="doLogin()">Sign in</button>
+      <button id="ssoBtn" style="flex:1;display:none" onclick="location.href='/api/auth/oidc/login'">Sign in with SSO</button>
+    </div>
+    <div id="loginMsg"></div>
+  </div>
+  <div id="setupForm" style="display:none">
+    <p class="muted" style="margin-bottom:6px">No users exist yet — create the first administrator.</p>
+    <label>Name</label><input id="setupName">
+    <label>Email</label><input id="setupEmail" type="email">
+    <label>Password</label><input id="setupPassword" type="password">
+    <div class="row2"><button class="approve" style="flex:1" onclick="doSetup()">Create admin account</button></div>
+    <div id="setupMsg"></div>
+  </div>
+</div></div>
+
+<!-- settings -->
+<div class="overlay" id="settingsOverlay"><div class="modal">
+  <h2>Settings</h2>
+  <div class="tabbtns">
+    <button id="tab-users" class="active" onclick="showTab('users')">Users</button>
+    <button id="tab-integrations" onclick="showTab('integrations')">Integrations</button>
+    <button id="tab-auth" onclick="showTab('auth')">Auth &amp; SSO</button>
+  </div>
+  <div id="pane-users">
+    <div id="usersList" style="margin-bottom:14px"></div>
+    <label>Name</label><input id="nuName">
+    <label>Email</label><input id="nuEmail" type="email">
+    <label>Password</label><input id="nuPassword" type="password">
+    <label>Role</label><select id="nuRole"><option>viewer</option><option>approver</option><option>admin</option></select>
+    <div class="row2"><button class="approve" onclick="addUser()">Add user</button></div>
+    <div id="usersMsg"></div>
+  </div>
+  <div id="pane-integrations" style="display:none">
+    <div id="itgList" style="margin-bottom:14px"></div>
+    <label>Type</label><select id="niKind"></select>
+    <div id="niFields"></div>
+    <div class="row2"><button class="approve" onclick="addIntegration()">Add integration</button></div>
+    <div id="itgMsg"></div>
+  </div>
+  <div id="pane-auth" style="display:none">
+    <p class="muted" id="authState" style="margin-bottom:10px"></p>
+    <label>OIDC issuer URL</label><input id="oidcIssuer" placeholder="https://your-tenant.okta.com">
+    <label>Client ID</label><input id="oidcClientId">
+    <label>Client secret</label><input id="oidcSecret" type="password">
+    <div class="row2">
+      <button class="approve" onclick="saveOidc()">Save SSO config</button>
+      <button id="authToggleBtn" onclick="toggleAuth()">…</button>
+    </div>
+    <div id="authMsg"></div>
+  </div>
+  <div class="row2"><button style="flex:1" onclick="closeSettings()">Close</button></div>
+</div></div>
+
+<div class="stats" id="stats"></div>
+
+<div class="panel">
+  <h2>⏳ Pending approvals</h2>
+  <div id="pending"></div>
+</div>
+
+<div class="panel">
+  <h2>🗓 Scheduled changes</h2>
+  <div id="scheduled"></div>
+</div>
+
+<div class="panel">
+  <h2>⛨ Policy gate <span class="muted" style="text-transform:none;letter-spacing:0;font-size:12px">— first match wins, top to bottom</span></h2>
+  <div id="policies"></div>
+</div>
+
+<div class="panel">
+  <h2>Recent agent actions</h2>
+  <div id="actions"></div>
+</div>
+
+<div class="cols">
+  <div class="panel">
+    <h2>Registered agents</h2>
+    <div id="agents"></div>
+  </div>
+  <div class="panel">
+    <h2>Evidence ledger (hash-chained)</h2>
+    <div id="evidence"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let mode = 'observe';
+
+async function get(u) { return (await fetch(u)).json(); }
+
+async function toggleMode() {
+  await fetch('/api/mode', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ mode: mode === 'observe' ? 'enforce' : 'observe', changed_by: 'dashboard-user' }) });
+  refresh();
+}
+
+async function decide(id, decision) {
+  const comment = decision === 'rejected' ? (prompt('Reason for rejection (recorded in evidence):') || '') : '';
+  await fetch(`/api/intents/${id}/decision`, { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ decision, approver: 'dashboard-user', comment }) });
+  refresh();
+}
+
+async function rollback(id) {
+  if (!confirm('Execute the compensating action and roll this change back?')) return;
+  const r = await fetch(`/api/intents/${id}/rollback`, { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ requested_by: 'dashboard-user' }) });
+  const j = await r.json();
+  if (!r.ok) alert('Rollback failed: ' + (j.rollback?.error || j.error));
+  refresh();
+}
+
+function riskBadge(r) { return `<span class="badge ${esc(r)}">${esc(r)}</span>`; }
+
+function actionRow(i, withButtons) {
+  const a = i.action || {};
+  const br = i.blast_radius || {};
+  return `<tr>
+    <td>${riskBadge(i.risk)}</td>
+    <td><b>${esc(i.agent_summary?.name)}</b><div class="muted">${esc(i.environment)}</div></td>
+    <td>${esc(i.intent_text)}<div class="mono">${esc(a.verb)} ${esc(a.resource || '')}</div>
+      <div class="muted">${br.resource_count || 0} resource(s) · $${br.cost_delta_usd_month || 0}/mo · policy: ${esc(i.policy_name)}</div>
+      ${i.would_have ? `<div class="muted">observe-only — would have: <b>${esc(i.would_have)}</b></div>` : ''}
+      ${i.not_before ? `<div class="muted">🗓 scheduled for ${new Date(i.not_before).toLocaleString()}${i.released_at ? ` · released ${new Date(i.released_at).toLocaleTimeString()}` : ''}${i.approval?.valid_until ? ` · approval valid until ${new Date(i.approval.valid_until).toLocaleTimeString()}` : ''}</div>` : ''}
+      ${i.revalidation ? `<div class="drift">⚠ ${esc(i.revalidation.reason)}: ${esc(i.revalidation.detail)}</div>` : ''}
+      ${i.approval ? `<div class="muted">${esc(i.approval.decision)} by ${esc(i.approval.approver)}${i.approval.comment ? ' — “' + esc(i.approval.comment) + '”' : ''}</div>` : ''}
+      ${i.execution && !i.execution.simulated ? `<div class="muted">☁ real: <b>${esc(i.execution.aws || i.execution.error)}</b></div>` : ''}
+      ${i.rollback_execution ? `<div class="muted">↩ rolled back: ${esc(i.rollback_execution.aws || 'done')}</div>` : ''}</td>
+    <td><span class="st-${esc(i.status)}">${esc(i.status)}</span>
+      ${i.rollback ? `<div class="muted">rollback: ${esc(i.rollback)}</div>` : ''}
+      ${!withButtons && i.status === 'executed' && i.rollback === 'AVAILABLE' ? `<button onclick="rollback('${i.id}')">↩ Roll back</button>` : ''}</td>
+    <td class="mono">${new Date(i.created_at).toLocaleTimeString()}</td>
+    ${withButtons ? `<td>
+      <button class="approve" onclick="decide('${i.id}','approved')">Approve</button>
+      <button class="reject" onclick="decide('${i.id}','rejected')">Reject</button></td>` : ''}
+  </tr>`;
+}
+
+function policyRow(pol, i) {
+  const m = pol.match || {};
+  const scope = [
+    m.environment ? `env: <b>${esc(m.environment)}</b>` : 'any env',
+    m.verbs ? `verbs: <b>${esc(m.verbs.join(', '))}</b>` : 'any verb',
+    m.window ? `🗓 ${esc((m.window.days || []).join('/'))} ${esc(m.window.start || '')}–${esc(m.window.end || '')}` : null
+  ].filter(Boolean).join(' · ');
+  const outcome = pol.action === 'allow' ? '<span class="st-executed">auto-approve</span>'
+    : pol.action === 'block' ? '<span class="st-blocked">block — never executes</span>'
+    : `<span class="st-pending">require ${esc(pol.required_role || 'team')} approval</span>` +
+      (pol.approval_ttl_minutes ? `<div class="muted">approval valid ${pol.approval_ttl_minutes / 60}h</div>` : '');
+  return `<tr>
+    <td class="mono">${i + 1}</td>
+    <td>${riskBadge(pol.risk)}</td>
+    <td><b>${esc(pol.name)}</b><div class="mono">${esc(pol.id)}</div></td>
+    <td class="muted">${scope}</td>
+    <td>${outcome}</td>
+  </tr>`;
+}
+
+async function refresh() {
+  const [summary, allIntents, agents, evidence, policies] = await Promise.all([
+    get('/api/summary'), get('/api/intents'), get('/api/agents'), get('/api/evidence'), get('/api/policies')
+  ]);
+  $('policies').innerHTML = Array.isArray(policies) && policies.length
+    ? `<table><tr><th>#</th><th>Risk</th><th>Rule</th><th>Applies to</th><th>Outcome</th></tr>${policies.map(policyRow).join('')}</table>`
+    : '<div class="empty">No policies loaded.</div>';
+  mode = summary.mode;
+
+  document.title = 'Signplane — ' + mode.toUpperCase();
+  $('modePill').textContent = mode.toUpperCase() + ' MODE';
+  $('endpoint').textContent = '☁ ' + (summary.aws_endpoint || 'no endpoint');
+  $('modePill').className = 'mode-pill mode-' + mode;
+  $('modeBtn').textContent = mode === 'observe' ? 'Switch to ENFORCE' : 'Switch to OBSERVE';
+  $('chain').innerHTML = summary.chain.valid
+    ? `<span class="chain-ok">✓ chain verified (${summary.chain.records})</span>`
+    : `<span class="chain-bad">✗ CHAIN BROKEN at #${summary.chain.broken_at_index}</span>`;
+
+  $('stats').innerHTML = [
+    ['Agents', summary.agents], ['Actions governed', summary.intents_total],
+    ['Pending', summary.pending], ['Scheduled', summary.scheduled || 0],
+    ['Executed', summary.executed],
+    ['Blocked', summary.blocked], ['Observed', summary.observed],
+    ['Rolled back', summary.rolled_back || 0]
+  ].map(([l, n]) => `<div class="stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join('');
+
+  const pending = allIntents.filter(i => i.status === 'pending');
+  $('pending').innerHTML = pending.length
+    ? `<table><tr><th>Risk</th><th>Agent</th><th>Proposed change</th><th>Status</th><th>When</th><th>Decision</th></tr>${pending.map(i => actionRow(i, true)).join('')}</table>`
+    : `<div class="empty">Nothing waiting on a human. ${mode === 'observe' ? 'Observe mode — actions are logged, not gated.' : ''}</div>`;
+
+  const scheduled = allIntents.filter(i => i.status === 'scheduled');
+  $('scheduled').innerHTML = scheduled.length
+    ? `<table><tr><th>Risk</th><th>Agent</th><th>Change</th><th>Status</th><th>When</th></tr>${scheduled.map(i => actionRow(i, false)).join('')}</table>`
+    : `<div class="empty">No scheduled changes. Approved changes with a future release time wait here, then re-validate (approval TTL · policy · state drift) before executing.</div>`;
+
+  const recent = allIntents.filter(i => i.status !== 'pending' && i.status !== 'scheduled').slice(0, 15);
+  $('actions').innerHTML = recent.length
+    ? `<table><tr><th>Risk</th><th>Agent</th><th>Proposed change</th><th>Outcome</th><th>When</th></tr>${recent.map(i => actionRow(i, false)).join('')}</table>`
+    : `<div class="empty">No agent actions yet. Run <span class="mono">node demo-agent.js</span> to simulate traffic.</div>`;
+
+  $('agents').innerHTML = agents.length
+    ? `<table><tr><th>Name</th><th>Owner</th><th>Model</th><th>Scope</th></tr>` + agents.map(a =>
+        `<tr><td><b>${esc(a.name)}</b><div class="mono">${esc(a.id)}</div></td><td>${esc(a.owner)}</td><td>${esc(a.model)}</td><td>${esc((a.environments||[]).join(', '))}</td></tr>`).join('') + '</table>'
+    : `<div class="empty">No agents registered.</div>`;
+
+  $('evidence').innerHTML = evidence.length
+    ? `<table><tr><th>Record</th><th>Type / status</th><th>Hash</th></tr>` + evidence.slice(0, 10).map(e =>
+        `<tr><td class="mono">${esc(e.id)}<div class="muted">${new Date(e.recorded_at).toLocaleTimeString()}</div></td>
+         <td>${esc(e.payload.type)}<div class="muted">${esc(e.payload.status || e.payload.mode || '')}</div></td>
+         <td class="mono">${esc(e.hash.slice(0, 16))}…<div class="muted">prev: ${esc((e.prev_hash || '').slice(0, 12))}…</div></td></tr>`).join('') + '</table>'
+    : `<div class="empty">Ledger is empty.</div>`;
+}
+
+// ---------- auth ----------
+let me = null;
+async function checkAuth() {
+  me = await get('/api/auth/me');
+  const overlay = $('loginOverlay');
+  if (me.auth_mode === 'on' && !me.user) {
+    overlay.classList.add('show');
+    $('setupForm').style.display = me.needs_setup ? '' : 'none';
+    $('loginForm').style.display = me.needs_setup ? 'none' : '';
+    $('loginTitle').textContent = me.needs_setup ? 'Welcome to Signplane' : 'Sign in to Signplane';
+    $('ssoBtn').style.display = me.sso_enabled ? '' : 'none';
+    return false;
+  }
+  overlay.classList.remove('show');
+  $('userchip').innerHTML = me.user
+    ? (me.user.demo ? '<b>demo mode</b> · auth off' : `<b>${esc(me.user.name)}</b> · ${esc(me.user.role)} · <a href="#" onclick="logout();return false">sign out</a>`)
+    : '';
+  return true;
+}
+async function doLogin() {
+  const r = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ email: $('loginEmail').value, password: $('loginPassword').value }) });
+  if (r.ok) { location.reload(); } else { $('loginMsg').innerHTML = '<div class="err-msg">Invalid credentials.</div>'; }
+}
+async function doSetup() {
+  const r = await fetch('/api/auth/setup', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: $('setupName').value, email: $('setupEmail').value, password: $('setupPassword').value }) });
+  if (r.ok) location.reload(); else $('setupMsg').innerHTML = '<div class="err-msg">' + esc((await r.json()).error) + '</div>';
+}
+async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); location.reload(); }
+
+// ---------- settings ----------
+function openSettings() { $('settingsOverlay').classList.add('show'); loadUsers(); loadIntegrations(); loadAuthPane(); }
+function closeSettings() { $('settingsOverlay').classList.remove('show'); }
+function showTab(t) {
+  for (const x of ['users', 'integrations', 'auth']) {
+    $('pane-' + x).style.display = x === t ? '' : 'none';
+    $('tab-' + x).classList.toggle('active', x === t);
+  }
+}
+async function loadUsers() {
+  const r = await fetch('/api/users');
+  if (!r.ok) { $('usersList').innerHTML = '<div class="muted">Admin role required.</div>'; return; }
+  const users = await r.json();
+  $('usersList').innerHTML = users.length
+    ? users.map(u => `<div class="itg-row"><b>${esc(u.name)}</b><span class="muted">${esc(u.email)}</span>
+        <select onchange="setRole('${u.id}', this.value)">${['viewer','approver','admin'].map(x => `<option ${x===u.role?'selected':''}>${x}</option>`).join('')}</select>
+        <button onclick="delUser('${u.id}')">✕</button></div>`).join('')
+    : '<div class="muted">No users yet (demo mode uses an implicit admin).</div>';
+}
+async function addUser() {
+  const r = await fetch('/api/users', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: $('nuName').value, email: $('nuEmail').value, password: $('nuPassword').value, role: $('nuRole').value }) });
+  $('usersMsg').innerHTML = r.ok ? '<div class="ok-msg">User added.</div>' : '<div class="err-msg">' + esc((await r.json()).error) + '</div>';
+  loadUsers();
+}
+async function setRole(id, role) { await fetch('/api/users/' + id, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ role }) }); loadUsers(); }
+async function delUser(id) { if (confirm('Remove this user?')) { await fetch('/api/users/' + id, { method: 'DELETE' }); loadUsers(); } }
+
+let itgKinds = {};
+async function loadIntegrations() {
+  const r = await fetch('/api/integrations');
+  if (!r.ok) { $('itgList').innerHTML = '<div class="muted">Admin role required.</div>'; return; }
+  const data = await r.json();
+  itgKinds = data.kinds;
+  $('niKind').innerHTML = Object.entries(data.kinds).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('');
+  renderItgFields();
+  $('niKind').onchange = renderItgFields;
+  $('itgList').innerHTML = data.configured.length
+    ? data.configured.map(i => `<div class="itg-row"><b>${esc(i.name)}</b><span class="muted">${esc(i.kind)}${i.enabled ? '' : ' · disabled'}</span>
+        <button onclick="testItg('${i.id}')">Test</button>
+        <button onclick="toggleItg('${i.id}', ${i.enabled ? 'false' : 'true'})">${i.enabled ? 'Disable' : 'Enable'}</button>
+        <button onclick="delItg('${i.id}')">✕</button></div>`).join('')
+    : '<div class="muted">No integrations configured. Add Slack, Jira, ServiceNow, or a SIEM webhook below.</div>';
+}
+function renderItgFields() {
+  const kind = $('niKind').value;
+  $('niFields').innerHTML = (itgKinds[kind]?.configFields || []).map(f =>
+    `<label>${esc(f)}</label><input data-itg-field="${esc(f)}" ${/token|secret|password/.test(f) ? 'type="password"' : ''}>`).join('');
+}
+async function addIntegration() {
+  const config = {};
+  document.querySelectorAll('[data-itg-field]').forEach(el => { if (el.value) config[el.dataset.itgField] = el.value; });
+  const r = await fetch('/api/integrations', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ kind: $('niKind').value, config }) });
+  $('itgMsg').innerHTML = r.ok ? '<div class="ok-msg">Integration added — hit Test to verify.</div>' : '<div class="err-msg">' + esc((await r.json()).error) + '</div>';
+  loadIntegrations();
+}
+async function testItg(id) {
+  $('itgMsg').innerHTML = '<div class="muted">Testing…</div>';
+  const r = await fetch(`/api/integrations/${id}/test`, { method: 'POST' });
+  const j = await r.json();
+  $('itgMsg').innerHTML = r.ok ? '<div class="ok-msg">✓ ' + esc(j.message) + '</div>' : '<div class="err-msg">✗ ' + esc(j.error) + '</div>';
+}
+async function toggleItg(id, enabled) { await fetch('/api/integrations/' + id, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ enabled }) }); loadIntegrations(); }
+async function delItg(id) { if (confirm('Remove this integration?')) { await fetch('/api/integrations/' + id, { method: 'DELETE' }); loadIntegrations(); } }
+
+async function loadAuthPane() {
+  $('authState').textContent = me.auth_mode === 'on'
+    ? 'Authentication is ON — dashboard actions require a signed-in user with the right role.'
+    : 'Authentication is OFF (demo mode) — everyone is an implicit admin. Turn it on for production.';
+  $('authToggleBtn').textContent = me.auth_mode === 'on' ? 'Turn auth OFF' : 'Turn auth ON';
+}
+async function toggleAuth() {
+  const turningOn = me.auth_mode !== 'on';
+  const body = { auth_mode: turningOn ? 'on' : 'off' };
+  if (turningOn) {
+    const name = prompt('Enabling auth. First admin — name:'); if (!name) return;
+    const email = prompt('Admin email:'); if (!email) return;
+    const password = prompt('Admin password:'); if (!password) return;
+    body.first_admin = { name, email, password };
+  }
+  const r = await fetch('/api/settings', { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (r.ok) location.reload(); else $('authMsg').innerHTML = '<div class="err-msg">' + esc((await r.json()).error) + '</div>';
+}
+async function saveOidc() {
+  const r = await fetch('/api/settings', { method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ oidc: { issuer: $('oidcIssuer').value, client_id: $('oidcClientId').value, client_secret: $('oidcSecret').value, enabled: true } }) });
+  $('authMsg').innerHTML = r.ok ? '<div class="ok-msg">SSO configured — the login screen now shows "Sign in with SSO".</div>' : '<div class="err-msg">Failed to save.</div>';
+}
+
+checkAuth().then(ok => { if (ok) refresh(); });
+setInterval(async () => { if (!$('loginOverlay').classList.contains('show')) refresh(); }, 2500);
+</script>
+</body>
+</html>
