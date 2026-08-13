@@ -56,6 +56,19 @@ test('evidence chain: append, verify, detect tamper', () => {
   assert.strictEqual(v.broken_at_index, 1);
 });
 
+test('cloudSpec normalizes action.cloud and legacy action.aws', () => {
+  assert.strictEqual(core.cloudSpec(null), null);
+  assert.strictEqual(core.cloudSpec({ verb: 'write' }), null);
+  const legacy = core.cloudSpec({ aws: { service: 'ec2', operation: 'run_instances', params: { MinCount: 1 } } });
+  assert.strictEqual(legacy.provider, 'aws');
+  assert.strictEqual(legacy.service, 'ec2');
+  const azure = core.cloudSpec({ cloud: { provider: 'Azure', service: 'compute', operation: 'virtual_machines.begin_deallocate', params: {} } });
+  assert.strictEqual(azure.provider, 'azure');
+  const gcp = core.cloudSpec({ cloud: { provider: 'gcp', service: 'compute', operation: 'instances.stop' } });
+  assert.strictEqual(gcp.provider, 'gcp');
+  assert.strictEqual(gcp.operation, 'instances.stop');
+});
+
 test('blastRadius flags destruction and counts resources', () => {
   const br = core.blastRadius({ verb: 'delete', resources_touched: ['a', 'b'], cost_delta_usd_month: -10 });
   assert.strictEqual(br.resource_count, 2);

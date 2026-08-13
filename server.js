@@ -91,9 +91,9 @@ function finalizeIntent(intent, extra = {}) {
 const DEFAULT_APPROVAL_TTL_MIN = 240;
 
 function captureApprovalState(intent) {
-  const aws = intent.action && intent.action.aws;
-  if (!aws || !aws.service) return;
-  const cur = core.runExecutor({ op: 'describe', service: aws.service });
+  const spec = core.cloudSpec(intent.action);
+  if (!spec) return;
+  const cur = core.runExecutor({ op: 'describe', provider: spec.provider, service: spec.service });
   intent.approval_state_hash = core.sha256(core.stableStringify(cur.ok ? cur.result : cur.error));
 }
 
@@ -118,14 +118,14 @@ function releaseScheduled(intent) {
     return;
   }
 
-  const aws = intent.action && intent.action.aws;
-  if (aws && intent.approval_state_hash) {
-    const cur = core.runExecutor({ op: 'describe', service: aws.service });
+  const spec = core.cloudSpec(intent.action);
+  if (spec && intent.approval_state_hash) {
+    const cur = core.runExecutor({ op: 'describe', provider: spec.provider, service: spec.service });
     const hash = core.sha256(core.stableStringify(cur.ok ? cur.result : cur.error));
     if (hash !== intent.approval_state_hash) {
       intent.status = 'pending';
       intent.revalidation = { failed_at: nowIso, reason: 'state_drift',
-        detail: `${aws.service} state changed between approval and scheduled release — re-approval required` };
+        detail: `${spec.provider}/${spec.service} state changed between approval and scheduled release — re-approval required` };
       finalizeIntent(intent, { revalidation: intent.revalidation });
       return;
     }

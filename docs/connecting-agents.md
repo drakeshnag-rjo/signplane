@@ -27,6 +27,21 @@ Two execution styles, both supported today:
   proposal but the response says `enforced: false` — the agent proceeds on its own.
   Zero behavior change; full visibility. This is how every pilot starts.
 
+## Fastest path: developer desktop
+
+```bash
+node dev.js
+```
+
+One command: server up, dev agent registered (scoped to `dev`/`tst`), and every
+integration snippet printed — env vars, Python, Node, and the **MCP config**.
+
+- **MCP-capable agents** (Claude Desktop, Claude Code, anything speaking Model
+  Context Protocol): add the printed `mcpServers` block to your config and the
+  agent gains `propose_change` / `check_intent` / `list_policies` as native tools.
+- **Custom agents**: drop `clients/signplane.py` or `clients/signplane.js` into
+  your project — single files, stdlib only. `propose → wait → executed/Blocked`.
+
 ## 1. Register the agent (once, by an admin)
 
 ```bash

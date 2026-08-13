@@ -69,6 +69,29 @@ Key mechanisms:
 - **Drift guard** — an approval is a decision about the world *at approval time*. Scheduled changes re-validate at release: approval TTL, policy window, and a state fingerprint against what the approver saw. Drift → back to a human.
 - **Evidence ledger** — append-only JSONL where each record carries the previous record's hash. `GET /api/evidence/verify` recomputes the chain; the export maps to SOC 2 CC8.1 / SOX change controls.
 
+## Multi-cloud
+
+The execution broker speaks three providers via `action.cloud = {provider, service, operation, params}`:
+
+| Provider | SDK (lazy — install only what you use) | Credentials | Operation format |
+|---|---|---|---|
+| `aws` | `boto3` | env keys / instance profile / emulator | `run_instances` |
+| `azure` | `azure-identity` + `azure-mgmt-*` | `DefaultAzureCredential` + `AZURE_SUBSCRIPTION_ID` | `virtual_machines.begin_deallocate` |
+| `gcp` | `google-api-python-client` | Application Default Credentials | `instances.stop` |
+
+Policy, approvals, evidence, scheduling, and drift are provider-agnostic — the same rules govern all three clouds. One-click rollback plans currently cover AWS operations; Azure/GCP execute with snapshots and report `rollback: NONE` until safe compensations land. A missing SDK returns a clean, actionable error, never a crash.
+
+## Developer desktop — govern your local agent in 2 minutes
+
+```bash
+node dev.js
+```
+
+Starts the server, registers a dev-scoped agent (prod is structurally out of its reach), and prints ready-to-paste: shell env vars, a Python snippet, a Node snippet, and the **MCP config for Claude Desktop / Claude Code**.
+
+- **MCP**: [mcp-server.js](mcp-server.js) (zero-dep, stdio) gives any MCP-capable agent three tools — `propose_change`, `check_intent`, `list_policies` — with tool descriptions that teach the LLM the rules ("BLOCKED means don't retry or work around it").
+- **SDKs**: [clients/signplane.py](clients/signplane.py) and [clients/signplane.js](clients/signplane.js) are single-file drop-ins (stdlib only): `sp.propose(...)` → `verdict.pending` → `sp.wait(verdict)` blocks until a human decides; `Blocked` is an exception, not a status to ignore.
+
 ## Connecting your agent
 
 One HTTP call before acting — [examples/guarded_agent.py](examples/guarded_agent.py) is the complete pattern in ~60 lines:

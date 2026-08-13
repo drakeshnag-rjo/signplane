@@ -10,6 +10,19 @@
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | — | Optional. If unset and targeting real AWS, boto3's standard chain applies (shared config, **IAM instance profile** — recommended) |
 | `SIGNPLANE_DATA_DIR` | `./data` | Where all state lives |
 
+## Multi-cloud provider credentials
+
+The broker resolves credentials per provider — all standard chains, nothing Signplane-specific:
+
+| Provider | Setup | Env |
+|---|---|---|
+| **AWS** | emulator (no creds), env keys, or IAM instance profile | `AWS_ENDPOINT_URL`, `AWS_REGION` |
+| **Azure** | `pip install azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-storage azure-mgmt-resource`; then `az login` (or managed identity / env service principal) | `AZURE_SUBSCRIPTION_ID` (required) |
+| **GCP** | `pip install google-api-python-client google-auth`; then `gcloud auth application-default login` (or a service-account key via `GOOGLE_APPLICATION_CREDENTIALS`) | `GOOGLE_CLOUD_PROJECT` (default project) |
+
+Scope the identities you hand the broker exactly as you would any operator: dev/test subscriptions
+and projects first, production denied until Phase 4 of the [pilot runbook](pilot-runbook.md).
+
 ## Data files (everything Signplane stores)
 
 | File | Contents |
