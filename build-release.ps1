@@ -16,13 +16,20 @@ Copy-Item (Join-Path $root "executor.py")   $staging
 Copy-Item (Join-Path $root "policies.json") $staging
 Copy-Item (Join-Path $root "demo-agent-aws.js")       $staging
 Copy-Item (Join-Path $root "demo-agent-scheduled.js") $staging
+Copy-Item (Join-Path $root "mcp-server.js")           $staging
+Copy-Item (Join-Path $root "dev.js")                  $staging
 Copy-Item -Recurse (Join-Path $root "lib")      (Join-Path $staging "lib")
 Copy-Item -Recurse (Join-Path $root "public")   (Join-Path $staging "public")
 Copy-Item -Recurse (Join-Path $root "examples") (Join-Path $staging "examples")
+Copy-Item -Recurse (Join-Path $root "clients")  (Join-Path $staging "clients")
 
 New-Item -ItemType Directory -Force (Join-Path $staging "docs") | Out-Null
 foreach ($d in "INSTALL.md", "pilot-runbook.md", "install-phase0.md", "connecting-agents.md") {
     Copy-Item (Join-Path $root "docs\$d") (Join-Path $staging "docs")
+}
+foreach ($d in "API.md", "CONFIGURATION.md") {
+    $pub = "C:\Claude_CoWork\signplane\docs\$d"
+    if (Test-Path $pub) { Copy-Item $pub (Join-Path $staging "docs") }
 }
 # the client guide doubles as the bundle's front door
 Copy-Item (Join-Path $root "docs\INSTALL.md") (Join-Path $staging "INSTALL.md")
