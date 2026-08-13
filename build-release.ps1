@@ -24,13 +24,11 @@ Copy-Item -Recurse (Join-Path $root "examples") (Join-Path $staging "examples")
 Copy-Item -Recurse (Join-Path $root "clients")  (Join-Path $staging "clients")
 
 New-Item -ItemType Directory -Force (Join-Path $staging "docs") | Out-Null
-foreach ($d in "INSTALL.md", "pilot-runbook.md", "install-phase0.md", "connecting-agents.md") {
-    Copy-Item (Join-Path $root "docs\$d") (Join-Path $staging "docs")
+foreach ($d in "INSTALL.md", "pilot-runbook.md", "install-phase0.md", "connecting-agents.md", "API.md", "CONFIGURATION.md") {
+    $doc = Join-Path $root "docs\$d"
+    if (Test-Path $doc) { Copy-Item $doc (Join-Path $staging "docs") }
 }
-foreach ($d in "API.md", "CONFIGURATION.md") {
-    $pub = "C:\Claude_CoWork\signplane\docs\$d"
-    if (Test-Path $pub) { Copy-Item $pub (Join-Path $staging "docs") }
-}
+if (Test-Path (Join-Path $root "reset-demo.sh")) { Copy-Item (Join-Path $root "reset-demo.sh") $staging }
 # the client guide doubles as the bundle's front door
 Copy-Item (Join-Path $root "docs\INSTALL.md") (Join-Path $staging "INSTALL.md")
 

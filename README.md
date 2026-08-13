@@ -12,14 +12,18 @@ AI agents are starting to operate production — scaling clusters, provisioning 
 
 ## Quickstart — full sandbox in ~5 minutes, no cloud account
 
-Requires Node ≥ 22.5 and Python 3.10+.
+Runs on **macOS, Linux, and Windows**. Requires Node ≥ 22.5 and Python 3.10+
+(macOS: `brew install node python` · Ubuntu: see [docs/INSTALL.md](docs/INSTALL.md) · Windows: python.org + nodejs.org installers).
 
 ```bash
-pip install "moto[server]" boto3
-python -m moto.server -p 5000        # terminal 1: local AWS emulator
-node server.js                       # terminal 2: → http://localhost:4820
-node demo-agent-aws.js               # terminal 3: simulated agent traffic
+python3 -m pip install "moto[server]" boto3   # Windows: python -m pip …
+python3 -m moto.server -p 5000                # terminal 1: local AWS emulator
+node server.js                                # terminal 2: → http://localhost:4820
+node demo-agent-aws.js                        # terminal 3: simulated agent traffic
 ```
+
+One-command demo reset: `./reset-demo.sh` (macOS/Linux) · `.\reset-demo.ps1` (Windows).
+The server auto-detects `python3`/`python` for the broker; override with `SIGNPLANE_PYTHON`.
 
 In the dashboard: flip to **ENFORCE**, re-run the demo, approve the pending changes (real instances launch in the emulator), block-test the destructive one, click **↩ Roll back**, and try the tamper test — edit one character in `data/evidence.jsonl` and watch the chain break.
 
